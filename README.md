@@ -35,6 +35,3 @@ The server listens on `http://127.0.0.1:3000` with:
 - `POST /search` – search nearest neighbors
 - `GET /health` – simple health report
 
-> Note: any leftover Python files are deprecated and can be ignored; the Rust code is the canonical implementation.
-
-
