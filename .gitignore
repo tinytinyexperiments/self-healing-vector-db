@@ -14,4 +14,12 @@ __pycache__/
 # local data
 data/
 
+# node / nextjs
+node_modules/
+web/.next/
+web/.turbo/
+web/out/
+npm-debug.log*
+yarn-error.log*
+
 
