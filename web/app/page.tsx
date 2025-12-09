@@ -21,8 +21,8 @@ export default function HomePage() {
           </p>
 
           <p>
-            On startup, the engine bootstraps the HNSW index from SQLite. If
-            the index is ever corrupted or needs to be rebuilt, the system can
+            On startup, the engine bootstraps the HNSW index from SQLite. If the
+            index is ever corrupted or needs to be rebuilt, the system can
             reconstruct it from the stored source of truth. Over time, the goal
             is to add recall testing, drift detection, and automatic
             self-repair.
@@ -36,14 +36,12 @@ export default function HomePage() {
           </p>
 
           <p>
-            This page is just a tiny log of the journey: from a simple
-            prototype to a more serious, self-aware vector store that measures
-            and improves its own quality.
+            This page is just a tiny log of the journey: from a simple prototype
+            to a more serious, self-aware vector store that measures and
+            improves its own quality.
           </p>
         </section>
       </div>
     </main>
   );
 }
-
-
