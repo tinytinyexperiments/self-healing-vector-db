@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::Mutex;
 
 use rusqlite::{params, Connection};
 use thiserror::Error;
@@ -16,7 +17,7 @@ pub struct StorageConfig {
 }
 
 pub struct SqliteVectorStore {
-    conn: Connection,
+    conn: Mutex<Connection>,
     dim: usize,
 }
 
@@ -27,7 +28,7 @@ impl SqliteVectorStore {
         }
         let conn = Connection::open(&cfg.path)?;
         let store = Self {
-            conn,
+            conn: Mutex::new(conn),
             dim: cfg.dim,
         };
         store.init_schema()?;
@@ -35,7 +36,8 @@ impl SqliteVectorStore {
     }
 
     fn init_schema(&self) -> Result<(), StorageError> {
-        self.conn.execute(
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
             "CREATE TABLE IF NOT EXISTS vectors (
                 id INTEGER PRIMARY KEY,
                 vector BLOB NOT NULL
@@ -51,7 +53,8 @@ impl SqliteVectorStore {
             return Err(StorageError::Sqlite(rusqlite::Error::InvalidQuery));
         }
 
-        let tx = self.conn.unchecked_transaction()?;
+        let conn = self.conn.lock().unwrap();
+        let tx = conn.unchecked_transaction()?;
         {
             let mut stmt = tx.prepare(
                 "INSERT OR REPLACE INTO vectors (id, vector) VALUES (?1, ?2);",
@@ -66,7 +69,8 @@ impl SqliteVectorStore {
     }
 
     pub fn load_all(&self) -> Result<(Vec<i64>, Vec<f32>), StorageError> {
-        let mut stmt = self.conn.prepare("SELECT id, vector FROM vectors;")?;
+        let conn = self.conn.lock().unwrap();
+        let mut stmt = conn.prepare("SELECT id, vector FROM vectors;")?;
         let mut rows = stmt.query([])?;
 
         let mut ids = Vec::new();

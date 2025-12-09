@@ -1,4 +1,3 @@
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::{
@@ -7,6 +6,7 @@ use axum::{
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
+use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tracing_subscriber::EnvFilter;
 
@@ -67,12 +67,10 @@ async fn main() {
         .route("/health", get(health_handler))
         .with_state(state);
 
-    let addr: SocketAddr = "127.0.0.1:3000".parse().unwrap();
+    let addr = "127.0.0.1:3000";
+    let listener = TcpListener::bind(addr).await.unwrap();
     tracing::info!("listening on http://{}", addr);
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    axum::serve(listener, app).await.unwrap();
 }
 
 async fn add_handler(

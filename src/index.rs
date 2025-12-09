@@ -3,9 +3,6 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum IndexError {
-    #[error("hnsw error: {0}")]
-    Hnsw(String),
-
     #[error("dimension mismatch: expected {expected}, got {got}")]
     DimMismatch { expected: usize, got: usize },
 }
@@ -17,8 +14,9 @@ pub struct IndexConfig {
     pub max_elements: usize,
     /// HNSW parameter: number of neighbors in layers.
     pub m: usize,
-    /// HNSW parameter: construction/search effort.
+    /// HNSW parameter: construction effort.
     pub ef_construction: usize,
+    /// HNSW parameter: search effort.
     pub ef_search: usize,
 }
 
@@ -26,28 +24,26 @@ pub struct IndexConfig {
 /// from the concrete ANN implementation.
 pub struct HnswIndex {
     dim: usize,
+    ef_search: usize,
     hnsw: Hnsw<f32, DistL2>,
 }
 
 impl HnswIndex {
     pub fn new(cfg: &IndexConfig) -> Result<Self, IndexError> {
-        // Hnsw::new(m, max_nb_connection, ef_construction, nb_layer, seed)
-        // The exact signature may evolve; this wrapper keeps the rest of the app stable.
-        let max_nb_connection = cfg.max_elements;
-        let nb_layer = 16;
-        let seed = 42;
-
+        // hnsw_rs 0.1.x signature:
+        // Hnsw::new(max_nb_connection, max_elements, max_layer, ef_construction, dist_fn)
+        let max_layer = 16;
         let hnsw = Hnsw::<f32, DistL2>::new(
             cfg.m,
-            max_nb_connection,
+            cfg.max_elements,
+            max_layer,
             cfg.ef_construction,
-            nb_layer,
-            seed,
-        )
-        .map_err(|e| IndexError::Hnsw(format!("{e:?}")))?;
+            DistL2 {},
+        );
 
         Ok(Self {
             dim: cfg.dim,
+            ef_search: cfg.ef_search,
             hnsw,
         })
     }
@@ -57,23 +53,22 @@ impl HnswIndex {
     }
 
     pub fn len(&self) -> usize {
-        self.hnsw.len()
+        self.hnsw.get_nb_point()
     }
 
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
-    pub fn insert(&mut self, id: usize, vector: Vec<f32>) -> Result<(), IndexError> {
+    pub fn insert(&self, id: usize, vector: Vec<f32>) -> Result<(), IndexError> {
         if vector.len() != self.dim {
             return Err(IndexError::DimMismatch {
                 expected: self.dim,
                 got: vector.len(),
             });
         }
-        self.hnsw
-            .insert((id, vector))
-            .map_err(|e| IndexError::Hnsw(format!("{e:?}")))?;
+        // HNSW insert takes (&Vec<T>, external_id)
+        self.hnsw.insert((&vector, id));
         Ok(())
     }
 
@@ -84,14 +79,12 @@ impl HnswIndex {
                 got: query.len(),
             });
         }
-        let results = self
-            .hnsw
-            .search(query, k)
-            .map_err(|e| IndexError::Hnsw(format!("{e:?}")))?;
+        // HNSW search signature: search(&[T], knbn, ef_arg) -> Vec<Neighbour>
+        let results = self.hnsw.search(query, k, self.ef_search);
 
         let neighbors = results
-            .iter()
-            .map(|neigh| (neigh.d_id, neigh.distance))
+            .into_iter()
+            .map(|neigh| (neigh.d_id as usize, neigh.distance))
             .collect();
 
         Ok(neighbors)
