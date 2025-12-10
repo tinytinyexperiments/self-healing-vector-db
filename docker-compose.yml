@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile        # Rust Dockerfile
+    image: self-healing-vector-db:latest
+    container_name: self-healing-vector-db
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile        # web/Dockerfile (Node/Next)
+    image: self-healing-vector-db-web:latest
+    container_name: self-healing-vector-db-web
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: "http://api:3000"
+    ports:
+      - "3001:3000"                 # host 3001 -> container 3000
+    depends_on:
+      - api
+    restart: unless-stopped
