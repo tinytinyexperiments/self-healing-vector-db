@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: self-healing-vector-db:latest
+    container_name: self-healing-vector-db
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
