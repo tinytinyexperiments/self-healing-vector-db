@@ -43,7 +43,7 @@ async fn main() {
         .with_env_filter(EnvFilter::from_default_env())
         .init();
 
-    let dim = 384;
+    let dim = 4;
     let engine_cfg = EngineConfig {
         dim,
         storage_path: "data/vectors.sqlite".into(),
