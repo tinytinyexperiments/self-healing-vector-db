@@ -1,9 +1,39 @@
 # syntax=docker/dockerfile:1
 
 ##########
-# Build stage
+# Web build stage
 ##########
-FROM rust:1.75-slim AS builder
+FROM node:20-bullseye-slim AS web-builder
+WORKDIR /web
+
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+
+COPY web .
+RUN npm run build
+
+##########
+# Web runtime stage (Next.js)
+##########
+FROM node:20-bullseye-slim AS web-runtime
+WORKDIR /web
+
+ENV NODE_ENV=production
+ENV PORT=3001
+
+COPY --from=web-builder /web/.next ./.next
+COPY --from=web-builder /web/public ./public
+COPY --from=web-builder /web/package.json ./package.json
+COPY --from=web-builder /web/package-lock.json ./package-lock.json
+RUN npm ci --omit=dev
+
+EXPOSE 3001
+CMD ["npm", "run", "start"]
+
+##########
+# API build stage
+##########
+FROM rust:1.75-slim AS api-builder
 ARG APP_NAME=self_healing_vector_db_server
 WORKDIR /app
 
@@ -26,9 +56,9 @@ COPY web ./web
 RUN cargo build --release --bin ${APP_NAME}
 
 ##########
-# Runtime stage
+# API runtime stage
 ##########
-FROM debian:bookworm-slim AS runtime
+FROM debian:bookworm-slim AS api-runtime
 ARG APP_NAME=self_healing_vector_db_server
 WORKDIR /app
 
@@ -39,7 +69,7 @@ RUN apt-get update \
     && mkdir -p /app/data \
     && chown -R appuser:appuser /app
 
-COPY --from=builder /app/target/release/${APP_NAME} /usr/local/bin/${APP_NAME}
+COPY --from=api-builder /app/target/release/${APP_NAME} /usr/local/bin/${APP_NAME}
 
 USER appuser
 ENV RUST_LOG=info
